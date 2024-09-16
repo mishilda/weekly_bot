@@ -9,5 +9,7 @@ class IsRoot(BaseFilter):
 
 
 class IsRegistredUser(BaseFilter):
-    async def __call__(self, message: Message, user_db: UserDb) -> bool:
+    async def __call__(self, message: Message, user_db: UserDb | None) -> bool:
+        if user_db is None:
+            return False
         return message.from_user.id == user_db.user_id

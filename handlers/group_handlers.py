@@ -1,28 +1,43 @@
 from aiogram import Router, Bot
-from aiogram.types import Message
+from aiogram.types import Message, MessageReactionUpdated
 from aiogram.filters import Command, CommandObject, and_f
 from sqlalchemy.ext.asyncio import AsyncSession
-from database.orm_query import orm_get_user, orm_get_user_by_topic, orm_add_user
+from database.orm_query import (
+    orm_get_user,
+    orm_get_user_by_topic,
+    orm_add_user,
+    orm_update_user,
+    orm_delete_user
+    )
 from filters.chat_type_filter import IsMainGroup, IsGeneralTopic, IsTransferTopic
 
 
 group_router = Router()
-group_router.message.filter(IsMainGroup())
+group_router.message.filter(and_f(IsMainGroup(), IsGeneralTopic()))
 
 
-@group_router.message(and_f(Command(commands="add"), IsGeneralTopic()))
+@group_router.message(Command(commands="add"))
 async def process_add_command(
     message: Message, command: CommandObject, session: AsyncSession
 ):
     if command.args is None:
-        await message.answer("No username in args")
+        await message.answer("No args")
         return
 
-    username = command.args
+    try:
+        username, name = [s.strip() for s in command.args.split(" ", maxsplit=1)]
+        if name == "":
+            await message.reply("Wrong format")
+            return
+    except ValueError:
+        await message.reply("Wrong format")
+        return
+
     user = await orm_get_user(session, username)
     if user is None:
         user_dict = {
-            "username": command.args,
+            "username": username,
+            "name": name,
             "role": "regular",
             "is_mute": False,
             "user_id": None,
@@ -35,15 +50,57 @@ async def process_add_command(
         await message.answer(f"{username} already exists")
 
 
-@group_router.message(IsTransferTopic())
-async def process_text_to_command(
-    message: Message, bot: Bot, session: AsyncSession
-):
-    user = await orm_get_user_by_topic(session, message.message_thread_id)
+# @group_router.edited_message(IsTransferTopic())
+# async def process_edit_message(message: Message):
+#     await message.answer("Вижу редактированное сообщение!")
 
+
+@group_router.message(Command(commands="edit_name"))
+async def process_edit_command(
+    message: Message, command: CommandObject, bot: Bot, session: AsyncSession
+):
+    if command.args is None:
+        await message.reply("No args")
+        return
+
+    try:
+        username, name = [s.strip() for s in command.args.split(" ", maxsplit=1)]
+        if name == "":
+            await message.reply("Wrong format")
+            return
+    except ValueError:
+        await message.reply("Wrong format")
+        return
+
+    user = await orm_get_user(session, username)
     if user is None:
-        await message.answer(f"No such user in base: {message.message_thread_id}")
-    elif user.user_id is None:
-        await message.answer("user need to text to bot")
+        await message.answer(f"{username} doesn't exist")
+        return
+    elif user.name == name:
+        await message.answer("The same name")
+        return
     else:
-        await bot.copy_message(user.user_id, message.chat.id, message.message_id)
+        user.name = name
+        await orm_update_user(session, username, user)
+        if user.chat_id is not None:
+            await bot.edit_forum_topic(message.chat.id, user.chat_id, user.name)
+        await message.answer("Ok")
+
+
+@group_router.message(Command(commands="delete"))
+async def process_delete_command(
+    message: Message, command: CommandObject, bot: Bot, session: AsyncSession
+):
+    if command.args is None:
+        await message.reply("No args")
+        return
+
+    username = command.args
+    user = await orm_get_user(session, username)
+    if user is None:
+        await message.reply("f{username} doesn't exist")
+        return
+    if user.chat_id is not None:
+        await bot.delete_forum_topic(message.chat.id, user.chat_id)
+    await orm_delete_user(session, username)
+    await message.reply("Ok")

@@ -3,7 +3,7 @@ import logging
 
 from aiogram import Bot, Dispatcher
 from config_data.config import Config, load_config
-from handlers import other_handlers, root_handlers, regular_handlers, group_handlers
+from handlers import other_handlers, root_handlers, transfer_handlers, group_handlers
 from database.engine import Engine
 
 from middlewares.db import DataBaseSession, FindUserInDB
@@ -22,7 +22,7 @@ async def on_startup(engine: Engine):
 
 async def main():
     logging.basicConfig(
-        level=logging.DEBUG,
+        level=logging.INFO,
         format="%(filename)s:%(lineno)d #%(levelname)-8s "
         "[%(asctime)s] - %(name)s - %(message)s",
     )
@@ -57,8 +57,8 @@ async def main():
         DataBaseSession(engine.session_maker)
     )
 
-    dp.include_router(regular_handlers.regularRouter)
-    regular_handlers.regularRouter.message.outer_middleware(
+    dp.include_router(transfer_handlers.transfer_router)
+    transfer_handlers.transfer_router.message.outer_middleware(
         FindUserInDB(engine.session_maker)
     )
 

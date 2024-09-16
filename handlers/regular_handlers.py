@@ -25,10 +25,7 @@ regularRouter.message.filter(and_f(IsTransferedMessage(), IsRegistredUser()))
 
 @regularRouter.message()
 async def process_message(
-    message: Message,
-    bot: Bot,
-    user_db: UserDb,
-    session: AsyncSession
+    message: Message, bot: Bot, user_db: UserDb, session: AsyncSession
 ):
     if not user_db.chat_id:
         if user_db.name:
@@ -52,9 +49,13 @@ async def process_message(
         #     f"{message.from_user.username}: {message.text}",
         #     message_thread_id=user_db.chat_id
         # )
-        await bot.copy_message(bot.my_main_chat, message.chat.id,
-                               message.message_id, message_thread_id=user_db.chat_id)
-# #
-        # await message.send_copy(chat_id=bot.my_main_chat, reply_to_message_id=message.message_id)
+        await bot.copy_message(
+            bot.my_main_chat,
+            message.chat.id,
+            message.message_id,
+            message_thread_id=user_db.chat_id,
+        )
+    # #
+    # await message.send_copy(chat_id=bot.my_main_chat, reply_to_message_id=message.message_id)
     except TypeError:
         await message.reply(text="Can't sent this message.")
