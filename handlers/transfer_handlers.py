@@ -34,10 +34,7 @@ async def send_copy(
             replied_message = await orm_get_message_by_private(
                 session, message.reply_to_message.message_id, message.chat.id
             )
-            print(message.reply_to_message)
-            print(message.reply_to_message.message_id)
-            print(replied_message.topic_id)
-            print(replied_message.topic_chat)
+
             if replied_message is not None:
                 reply_parameters = ReplyParameters(
                     message_id=replied_message.topic_id,
@@ -94,7 +91,6 @@ async def transfer_message_to_chat(
             message.reply_to_message is not None
             and message.reply_to_message.message_id != to_user.chat_id
         ):
-            print(message.reply_to_message)
 
             replied_message = await orm_get_message_by_topic(
                 session, message.reply_to_message.message_id, to_user.chat_id
@@ -122,3 +118,35 @@ async def transfer_message_to_chat(
     except TypeError:
         await message.reply(text="Can't sent this message.")
         await bot.delete_message(to_user.user_id, from_message.message_id)
+
+
+@transfer_router.edited_message(IsTransferTopic())
+async def edit_in_chat(message: Message, bot: Bot, to_user: UserDb, session: AsyncSession):
+
+    edited_message = await orm_get_message_by_topic(
+        session, message.message_id, to_user.chat_id
+    )
+    try:
+        await bot.edit_message_text(
+            message.text,
+            chat_id=to_user.user_id,
+            message_id=edited_message.private_id
+        )
+    except TelegramBadRequest:
+        ...
+
+
+@transfer_router.edited_message(IsTransferedMessage())
+async def edit_in_topic(message: Message, bot: Bot,  session: AsyncSession):
+
+    edited_message = await orm_get_message_by_private(
+        session, message.message_id, message.from_user.id
+    )
+    try:
+        await bot.edit_message_text(
+            message.text,
+            chat_id=bot.my_main_chat,
+            message_id=edited_message.topic_id
+        )
+    except TelegramBadRequest:
+        ...
