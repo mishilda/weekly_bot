@@ -66,6 +66,10 @@ async def main():
         FindUserInDB(engine.session_maker)
     )
 
+    transfer_handlers.transfer_router.message_reaction.outer_middleware(
+        FindUserInDB(engine.session_maker)
+    )
+
     dp.include_router(other_handlers.router)
 
     await bot.delete_webhook(drop_pending_updates=True)

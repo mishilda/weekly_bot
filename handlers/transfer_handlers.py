@@ -1,11 +1,11 @@
 from aiogram import Router, Bot
-from aiogram.types import Message, ReplyParameters
+from aiogram.types import Message, ReplyParameters, MessageReactionUpdated
 from aiogram.filters import and_f, or_f
 from aiogram.exceptions import TelegramBadRequest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from filters.role_filter import IsRegistredUser
-from filters.chat_type_filter import IsTransferedMessage, IsTransferTopic
+from filters.chat_type_filter import IsTransferedMessage, IsTransferTopic, IsExistsInTopic, IsExistsInChat
 
 from database.models import UserDb, MessageDb
 from database.orm_query import (
@@ -93,7 +93,7 @@ async def transfer_message_to_chat(
         ):
 
             replied_message = await orm_get_message_by_topic(
-                session, message.reply_to_message.message_id, to_user.chat_id
+                session, message.reply_to_message.message_id
             )
             if replied_message is not None:
                 reply_parameters = ReplyParameters(
@@ -124,7 +124,7 @@ async def transfer_message_to_chat(
 async def edit_in_chat(message: Message, bot: Bot, to_user: UserDb, session: AsyncSession):
 
     edited_message = await orm_get_message_by_topic(
-        session, message.message_id, to_user.chat_id
+        session, message.message_id
     )
     try:
         await bot.edit_message_text(
@@ -150,3 +150,38 @@ async def edit_in_topic(message: Message, bot: Bot,  session: AsyncSession):
         )
     except TelegramBadRequest:
         ...
+
+
+@transfer_router.message_reaction(IsExistsInTopic())
+async def transfer_react_to_chat(
+    message_reaction: MessageReactionUpdated,
+    edited_message: MessageDb,
+    bot: Bot,
+    session: AsyncSession
+):
+    try:
+
+        await bot.set_message_reaction(
+            edited_message.private_chat,
+            edited_message.private_id,
+            reaction=message_reaction.new_reaction
+        )
+    except TelegramBadRequest as e:
+        print(e)
+
+
+@transfer_router.message_reaction(IsExistsInChat())
+async def transfer_react_to_topic(
+    message_reaction: MessageReactionUpdated,
+    edited_message: MessageDb,
+    bot: Bot,
+    session: AsyncSession
+):
+    try:
+        await bot.set_message_reaction(
+            bot.my_main_chat,
+            edited_message.topic_id,
+            reaction=message_reaction.new_reaction
+        )
+    except TelegramBadRequest as e:
+        print(e)

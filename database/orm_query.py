@@ -72,11 +72,7 @@ async def orm_get_message_by_private(
     return result.scalar()
 
 
-async def orm_get_message_by_topic(
-    session: AsyncSession, topic_id: int, topic_chat: int
-):
-    query = select(MessageDb).where(
-        MessageDb.topic_chat == topic_chat, MessageDb.topic_id == topic_id
-    )
+async def orm_get_message_by_topic(session: AsyncSession, topic_id: int):
+    query = select(MessageDb).where(MessageDb.topic_id == topic_id)
     result = await session.execute(query)
     return result.scalar()
